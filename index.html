@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b0f26">
+<title>Costume Voting · Noah’s Halloween Kickback</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎃</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Creepster&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .host-link {
+    position: absolute; top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px;
+    width: 40px; height: 40px; display: grid; place-items: center;
+    font-size: 20px; text-decoration: none; border-radius: 50%;
+    opacity: 0.22; z-index: 10;
+  }
+  .host-link:hover, .host-link:focus-visible { opacity: 1; }
+</style>
+</head>
+<body>
+<a class="host-link" href="/admin.html" aria-label="Host controls">🦇</a>
+<div class="wrap">
+  <h1 class="title">Noah’s 2026 Halloween Party Kickback</h1>
+  <p class="subtitle">Costume voting</p>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <main id="main"><div class="panel"><p>Loading the ballot…</p></div></main>
+</div>
+<div class="bar" id="bar" hidden>
+  <div class="bar-inner">
+    <div class="slots" id="slots"></div>
+    <button class="btn block" id="submit" disabled>Cast my vote</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const RANK_CLASS = ["r1", "r2", "r3"];
+  const ORD = ["1st", "2nd", "3rd"];
+  const HOWTO = {
+    best: "Tap your <b>favorite</b> costume first, then your 2nd and 3rd.",
+    couple: "Tap your <b>favorite</b> couple first, then your 2nd and 3rd.",
+    worst: "Tap the <b>worst</b> costume first, then the 2nd and 3rd worst.",
+  };
+
+  // ---- local storage (guarded) ----
+  const ls = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+  let voterId = ls.get("hv26-voter", null);
+  if (!voterId) {
+    voterId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)).replace(/[^a-zA-Z0-9-]/g, "");
+    ls.set("hv26-voter", voterId);
+  }
+  const myVotes = ls.get("hv26-votes", {});       // cat -> [ids] that were submitted
+  const picks = { best: [], couple: [], worst: [] }; // in-progress picks
+  let editing = {};                                // cat -> true while changing a vote
+  let state = null, lastStateJson = "";
+  let current = ls.get("hv26-cat", "best");
+  let sending = false;
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function toast(msg, ok) {
+    const t = document.createElement("div");
+    t.className = "toast" + (ok ? " ok" : "");
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3200);
+  }
+
+  const entrantsFor = (cat) => (state ? state.entrants.filter((e) => e.category === cat) : []);
+  const needed = (cat) => Math.min(3, entrantsFor(cat).length);
+  const nameOf = (id) => (state.entrants.find((e) => e.id === id) || {}).name || "Removed";
+
+  async function load() {
+    try {
+      const r = await fetch("/api/state", { cache: "no-store" });
+      if (!r.ok) throw new Error();
+      const text = await r.text();
+      if (text === lastStateJson) return;
+      lastStateJson = text;
+      state = JSON.parse(text);
+      // drop picks for people who were removed
+      for (const cat of Object.keys(picks)) {
+        const ids = new Set(entrantsFor(cat).map((e) => e.id));
+        picks[cat] = picks[cat].filter((id) => ids.has(id));
+      }
+      if (!state.categories.some((c) => c.id === current)) current = state.categories[0].id;
+      render();
+    } catch {
+      if (!state) $("main").innerHTML = `<div class="panel"><h2>Can’t reach the ballot</h2><p>Check your Wi-Fi or signal, then tap below.</p><button class="btn" onclick="location.reload()">Reload</button></div>`;
+    }
+  }
+
+  function renderTabs() {
+    $("tabs").innerHTML = state.categories.map((c) => `
+      <button class="tab" role="tab" aria-selected="${c.id === current}" data-cat="${c.id}">
+        ${myVotes[c.id] ? `<span class="done">Voted</span>` : ""}
+        <span class="emo" aria-hidden="true">${c.emoji}</span>${esc(c.name)}
+      </button>`).join("");
+  }
+
+  function render() {
+    if (!state) return;
+    renderTabs();
+    const cat = current;
+    const catInfo = state.categories.find((c) => c.id === cat);
+    const list = entrantsFor(cat);
+    const open = state.status[cat] === "open";
+    const voted = myVotes[cat];
+    const main = $("main");
+    let showBar = false;
+
+    if (!open) {
+      main.innerHTML = `<div class="panel"><div class="big">🔒</div><h2>Voting is closed</h2>
+        <p>${voted ? "Your vote was counted." : "This one’s locked in."} Winners get announced soon.</p>
+        ${nextButton(cat)}</div>`;
+    } else if (list.length === 0) {
+      main.innerHTML = `<div class="panel"><div class="big">👻</div><h2>No one’s in yet</h2>
+        <p>Entrants show up here as people arrive. This page updates on its own.</p></div>`;
+    } else if (voted && !editing[cat]) {
+      main.innerHTML = `<div class="panel"><div class="big">${catInfo.emoji}</div><h2>Your vote is in</h2>
+        <ul class="mypicks">${voted.map((id, i) => `<li><span class="dot" style="background:var(--${RANK_CLASS[i]})">${i + 1}</span>${esc(nameOf(id))}</li>`).join("")}</ul>
+        <div class="stack">${nextButton(cat)}<button class="btn ghost" data-act="edit">Change my picks</button></div></div>`;
+    } else {
+      showBar = true;
+      const p = picks[cat];
+      const need = needed(cat);
+      const howto = need === 3 ? HOWTO[cat] : `Only ${list.length} so far. Tap ${need === 1 ? "your pick" : "them in order"}.`;
+      main.innerHTML = `<p class="howto">${howto} Tap again to undo.</p>
+        <div class="grid">${list.map((e) => {
+          const r = p.indexOf(e.id);
+          const rc = r >= 0 ? " " + RANK_CLASS[r] : "";
+          const img = e.photo
+            ? `<img class="pic" src="${esc(e.photo)}" alt="" loading="lazy">`
+            : `<div class="nopic" aria-hidden="true">${esc(e.name.trim().charAt(0).toUpperCase() || "?")}</div>`;
+          return `<button class="card${rc}" data-id="${esc(e.id)}" aria-pressed="${r >= 0}" aria-label="${esc(e.name)}${r >= 0 ? ", your " + ORD[r] + " pick" : ""}">
+            ${img}${r >= 0 ? `<span class="badge${rc}">${r + 1}</span>` : ""}
+            <div class="name">${esc(e.name)}</div></button>`;
+        }).join("")}</div>
+        ${voted ? `<p style="margin-top:16px"><button class="btn ghost small" data-act="cancel">Keep my old vote</button></p>` : ""}`;
+      $("slots").innerHTML = [0, 1, 2].slice(0, need).map((i) => {
+        const id = p[i];
+        return `<div class="slot${id ? " filled " + RANK_CLASS[i] : ""}"><b>${i + 1}</b>${id ? esc(nameOf(id)) : "—"}</div>`;
+      }).join("");
+      $("slots").style.gridTemplateColumns = `repeat(${need}, 1fr)`;
+      const ready = p.length === need;
+      $("submit").disabled = !ready || sending;
+      $("submit").textContent = sending ? "Sending…" : ready ? "Cast my vote" : `Pick ${need - p.length} more`;
+    }
+    $("bar").hidden = !showBar;
+  }
+
+  function nextButton(cat) {
+    const next = state.categories.find((c) => c.id !== cat && !myVotes[c.id] && state.status[c.id] === "open" && entrantsFor(c.id).length);
+    return next ? `<button class="btn" data-next="${next.id}">Vote ${esc(next.name)} ${next.emoji}</button>` : "";
+  }
+
+  document.addEventListener("click", (ev) => {
+    const tab = ev.target.closest(".tab");
+    if (tab) { current = tab.dataset.cat; ls.set("hv26-cat", current); window.scrollTo(0, 0); render(); return; }
+    const nx = ev.target.closest("[data-next]");
+    if (nx) { current = nx.dataset.next; ls.set("hv26-cat", current); window.scrollTo(0, 0); render(); return; }
+    const act = ev.target.closest("[data-act]");
+    if (act) {
+      if (act.dataset.act === "edit") { editing[current] = true; picks[current] = []; }
+      if (act.dataset.act === "cancel") { editing[current] = false; }
+      render(); return;
+    }
+    const card = ev.target.closest(".card");
+    if (card) {
+      const p = picks[current];
+      const id = card.dataset.id;
+      const at = p.indexOf(id);
+      if (at >= 0) p.splice(at, 1);
+      else if (p.length < needed(current)) p.push(id);
+      else { toast("You’ve picked 3. Tap one to undo it first."); return; }
+      if (navigator.vibrate) navigator.vibrate(15);
+      render();
+    }
+  });
+
+  $("submit").addEventListener("click", async () => {
+    const cat = current;
+    const p = picks[cat].slice();
+    if (p.length !== needed(cat) || sending) return;
+    sending = true; render();
+    try {
+      const r = await fetch("/api/vote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ voterId, category: cat, picks: p }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "That vote didn’t go through. Try again.");
+      myVotes[cat] = p; ls.set("hv26-votes", myVotes);
+      editing[cat] = false; picks[cat] = [];
+      toast("Vote counted!", true);
+      window.scrollTo(0, 0);
+    } catch (e) {
+      toast(e.message || "That vote didn’t go through. Try again.");
+      lastStateJson = ""; load();
+    } finally {
+      sending = false; render();
+    }
+  });
+
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 12000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
