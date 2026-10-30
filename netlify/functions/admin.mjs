@@ -1,4 +1,4 @@
-import { party, json, isAdmin, getEntrants, getStatus, tally, publicEntrant, CATEGORY_IDS } from "../lib/common.mjs";
+import { party, json, isAdmin, getEntrants, getStatus, tally, publicEntrant, photoKey, CATEGORY_IDS } from "../lib/common.mjs";
 
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
 
@@ -27,25 +27,28 @@ export default async (req) => {
 
     case "add": {
       const name = String(body.name || "").trim().slice(0, 60);
-      const category = body.category;
+      const cats = [...new Set(Array.isArray(body.categories) ? body.categories : [body.category])];
       if (!name) return json({ error: "Type a name first." }, 400);
-      if (!CATEGORY_IDS.includes(category)) return json({ error: "Pick a category." }, 400);
+      if (!cats.length || !cats.every((c) => CATEGORY_IDS.includes(c)))
+        return json({ error: "Pick at least one category." }, 400);
 
-      const id = crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+      const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+      const photoId = newId();
       let hasPhoto = false;
       if (body.photo) {
         const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.photo);
         if (!m) return json({ error: "That photo format isn't supported." }, 400);
         const bytes = Buffer.from(m[2], "base64");
         if (bytes.length > MAX_PHOTO_BYTES) return json({ error: "Photo is too big. Try another." }, 400);
-        await store.set(`photos/${id}`, new Blob([bytes], { type: m[1] }), { metadata: { contentType: m[1] } });
+        await store.set(`photos/${photoId}`, new Blob([bytes], { type: m[1] }), { metadata: { contentType: m[1] } });
         hasPhoto = true;
       }
       const entrants = await getEntrants(store);
-      const entrant = { id, name, category, hasPhoto, createdAt: Date.now() };
-      entrants.push(entrant);
+      const now = Date.now();
+      const added = cats.map((category) => ({ id: newId(), name, category, hasPhoto, photoId, createdAt: now }));
+      entrants.push(...added);
       await store.setJSON("entrants", entrants);
-      return json({ ok: true, entrant: publicEntrant(entrant) });
+      return json({ ok: true, entrants: added.map(publicEntrant) });
     }
 
     case "rename": {
@@ -61,9 +64,12 @@ export default async (req) => {
 
     case "remove": {
       const entrants = await getEntrants(store);
+      const gone = entrants.find((x) => x.id === body.id);
       const next = entrants.filter((x) => x.id !== body.id);
       await store.setJSON("entrants", next);
-      await store.delete(`photos/${body.id}`);
+      // only delete the photo if no other ballot entry still uses it
+      if (gone?.hasPhoto && !next.some((x) => x.hasPhoto && photoKey(x) === photoKey(gone)))
+        await store.delete(`photos/${photoKey(gone)}`);
       return json({ ok: true });
     }
 

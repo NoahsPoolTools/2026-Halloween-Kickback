@@ -104,7 +104,7 @@
 
     <section id="view-add">
       <form id="addForm" class="box">
-        <div class="field"><span>Category</span><div class="catpick" id="catpick"></div></div>
+        <div class="field"><span>Ballots <span class="muted" style="font-weight:400">(tap all that apply)</span></span><div class="catpick" id="catpick"></div></div>
         <label class="field"><span>Name</span>
           <input id="name" type="text" autocomplete="off" autocapitalize="words" placeholder="Mike as the Babadook" maxlength="60">
         </label>
@@ -167,7 +167,8 @@
 
   let pin = ls.get("hv26-pin", "");
   let state = null, results = null, status = {};
-  let addCat = ls.get("hv26-addcat", "best");
+  let addCats = ls.get("hv26-addcats", ["best"]);
+  if (!Array.isArray(addCats)) addCats = ["best"];
   let photoData = null;
   let view = "add";
 
@@ -206,7 +207,8 @@
 
   // ---------- entrants view ----------
   function renderCatPick() {
-    $("catpick").innerHTML = cats().map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${c.id === addCat}">${c.emoji}<br>${esc(c.name)}</button>`).join("");
+    addCats = addCats.filter((id) => cats().some((c) => c.id === id));
+    $("catpick").innerHTML = cats().map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${addCats.includes(c.id)}">${addCats.includes(c.id) ? "✓ " : ""}${c.emoji}<br>${esc(c.name)}</button>`).join("");
   }
   function renderLists() {
     $("lists").innerHTML = cats().map((c) => {
@@ -303,12 +305,14 @@
     e.preventDefault();
     const name = $("name").value.trim();
     if (!name) { toast("Type a name first."); $("name").focus(); return; }
+    if (!addCats.length) { toast("Tap at least one ballot."); return; }
     const btn = $("addBtn");
     btn.disabled = true; btn.textContent = "Adding…";
     try {
-      await api("add", { name, category: addCat, photo: photoData });
-      const c = cats().find((x) => x.id === addCat);
-      toast(`${name} added to ${c.name}`, true);
+      await api("add", { name, categories: addCats, photo: photoData });
+      const names = cats().filter((x) => addCats.includes(x.id)).map((x) => x.name);
+      const list = names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0];
+      toast(`${name} added to ${list}`, true);
       $("name").value = ""; photoData = null; $("prev").textContent = "No photo"; $("clearPhoto").hidden = true;
       await refresh();
     } catch (err) { toast(err.message); }
@@ -319,7 +323,13 @@
   document.addEventListener("click", async (ev) => {
     const t = ev.target;
     const seg = t.closest(".seg button"); if (seg) return setView(seg.dataset.view);
-    const cp = t.closest("#catpick button"); if (cp) { addCat = cp.dataset.cat; ls.set("hv26-addcat", addCat); return renderCatPick(); }
+    const cp = t.closest("#catpick button");
+    if (cp) {
+      const id = cp.dataset.cat;
+      addCats = addCats.includes(id) ? addCats.filter((x) => x !== id) : [...addCats, id];
+      ls.set("hv26-addcats", addCats);
+      return renderCatPick();
+    }
 
     const tog = t.closest("[data-toggle]");
     if (tog) {
@@ -341,7 +351,7 @@
     const rm = t.closest("[data-remove]");
     if (rm) {
       const e = state.entrants.find((x) => x.id === rm.dataset.remove);
-      if (!confirm(`Remove ${e ? e.name : "this entrant"} from the ballot? Any votes for them stop counting.`)) return;
+      if (!confirm(`Remove ${e ? e.name : "this entrant"} from this ballot? Votes for them here stop counting. Other ballots aren’t affected.`)) return;
       try { await api("remove", { id: rm.dataset.remove }); await refresh(); toast("Removed", true); } catch (err) { toast(err.message); }
       return;
     }

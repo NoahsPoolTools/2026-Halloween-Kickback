@@ -32,7 +32,8 @@ export async function getStatus(store) {
   return status;
 }
 
-export const photoUrl = (e) => (e.hasPhoto ? `/api/photo/${e.id}?v=${e.createdAt}` : null);
+export const photoKey = (e) => e.photoId || e.id;
+export const photoUrl = (e) => (e.hasPhoto ? `/api/photo/${photoKey(e)}?v=${e.createdAt}` : null);
 
 export const publicEntrant = (e) => ({
   id: e.id,
