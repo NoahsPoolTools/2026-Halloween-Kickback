@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b0f26">
+<meta name="robots" content="noindex">
+<title>Host controls · Halloween voting</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦇</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=Creepster&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  .wrap { padding-bottom: 60px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--crypt); padding: 5px; border-radius: 14px; margin-bottom: 18px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; }
+  .seg button { border: 0; background: transparent; padding: 10px 4px; border-radius: 10px; font-weight: 700; }
+  .seg button[aria-selected="true"] { background: var(--pumpkin); color: #1b0f26; }
+  h2.sec { font-size: 1.25rem; margin: 26px 0 10px; }
+  .field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .field > span { font-weight: 700; }
+  input[type=text], input[type=password], input[inputmode] {
+    background: var(--night); border: 2px solid var(--crypt-2); border-radius: 12px; padding: 13px 14px; width: 100%; font-size: 1.1rem;
+  }
+  input:focus { border-color: var(--pumpkin); outline: none; }
+  .catpick { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 560px) { .catpick { grid-template-columns: repeat(4, 1fr); } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+  .chip { border: 2px solid var(--crypt-2); background: var(--night); border-radius: 999px; padding: 8px 14px; font-weight: 700; }
+  .chip[aria-pressed="true"] { border-color: var(--blood); background: #3a1522; }
+  .subhead { font-weight: 800; margin: 16px 0 4px; }
+  .ok { color: var(--slime); }
+  .reveal .podium.lineup { flex-wrap: wrap; align-items: flex-start; gap: 2vw; }
+  .reveal .lineup .spot { width: calc(36vh * 0.75); max-width: 17vw; }
+  .reveal .lineup .spot img, .reveal .lineup .spot .nopic { border-color: var(--blood); }
+  .reveal .detective { margin-top: 3vh; opacity: 0; transform: scale(.9); transition: all .5s cubic-bezier(.2,1.4,.4,1); }
+  .reveal .detective.on { opacity: 1; transform: none; }
+  .reveal .detective .lbl { color: var(--candle); }
+  .catpick button { border: 2px solid var(--crypt-2); background: var(--night); border-radius: 12px; padding: 10px 4px; font-weight: 700; font-size: .9rem; line-height: 1.15; }
+  .catpick button[aria-pressed="true"] { border-color: var(--pumpkin); background: #3a1f2c; }
+  .photo-row { display: flex; gap: 12px; align-items: center; }
+  .photo-prev { width: 84px; height: 112px; border-radius: 12px; object-fit: cover; background: var(--night); border: 2px dashed var(--crypt-2); flex: none; display: grid; place-items: center; color: var(--fog); font-size: .8rem; text-align: center; overflow: hidden; }
+  .photo-prev img { width: 100%; height: 100%; object-fit: cover; }
+  .filebtn { position: relative; overflow: hidden; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .box { background: var(--crypt); border: 2px solid var(--crypt-2); border-radius: 18px; padding: 16px; }
+  .cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .cat-head h3 { margin: 0; font-size: 1.15rem; }
+  .pill { font-size: .8rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+  .pill.open { background: var(--slime); color: #0d2a0c; }
+  .pill.closed { background: var(--blood); color: #fff; }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--crypt-2); }
+  .row:first-of-type { border-top: 0; }
+  .thumb { width: 44px; height: 58px; border-radius: 8px; object-fit: cover; background: var(--night); flex: none; display: grid; place-items: center; font-family: "Creepster", cursive; color: var(--crypt-2); font-size: 1.5rem; }
+  .row .nm { flex: 1; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .row .pts { font-weight: 800; font-size: 1.3rem; min-width: 52px; text-align: right; }
+  .row .sub { display: block; font-weight: 400; color: var(--fog); font-size: .82rem; }
+  .place { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #1b0f26; background: var(--crypt-2); flex: none; }
+  .muted { color: var(--fog); }
+  .cats { display: grid; gap: 14px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .qrbox { background: #fff; padding: 18px; border-radius: 18px; display: inline-block; }
+  .qrwrap { text-align: center; }
+  .url { word-break: break-all; font-weight: 700; margin: 12px 0; }
+  .tie { color: var(--candle); font-size: .85rem; margin-top: 8px; }
+
+  /* TV reveal */
+  .reveal { position: fixed; inset: 0; z-index: 40; background: radial-gradient(90% 70% at 50% 30%, #3a1d4d, var(--night)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px)); text-align: center; cursor: pointer; }
+  .reveal .rv-cat { font-family: "Creepster", cursive; font-size: clamp(2.2rem, 7vh, 5rem); color: var(--pumpkin); text-shadow: 0 4px 0 #7a2e00; margin: 0 0 3vh; line-height: 1; }
+  .reveal .podium { display: flex; gap: 3vw; align-items: flex-end; justify-content: center; width: 100%; }
+  .reveal .spot { flex: none; width: calc(42vh * 0.75); max-width: 30vw; opacity: 0; transform: translateY(30px) scale(.9); transition: all .5s cubic-bezier(.2,1.4,.4,1); }
+  .reveal .spot.on { opacity: 1; transform: none; }
+  .reveal .spot img, .reveal .spot .nopic { width: 100%; aspect-ratio: 3/4; object-fit: cover; border-radius: 18px; border: 6px solid var(--crypt-2); }
+  .reveal .spot .nopic { display: grid; place-items: center; font-family: "Creepster", cursive; font-size: 5rem; background: var(--crypt); color: var(--crypt-2); }
+  .reveal .spot.p1 img, .reveal .spot.p1 .nopic { border-color: var(--r1); }
+  .reveal .spot.p2 img, .reveal .spot.p2 .nopic { border-color: var(--r2); }
+  .reveal .spot.p3 img, .reveal .spot.p3 .nopic { border-color: var(--r3); }
+  .reveal .spot.p1 { width: calc(52vh * 0.75); max-width: 36vw; }
+  .reveal .lbl { font-weight: 800; font-size: clamp(1rem, 2.4vw, 1.6rem); margin-top: 10px; }
+  .reveal .who { font-weight: 800; font-size: clamp(1.1rem, 2.6vw, 2.2rem); line-height: 1.1; }
+  .reveal .pt { color: var(--fog); font-size: clamp(.9rem, 1.8vw, 1.2rem); }
+  .reveal .hint { margin-top: 3vh; color: var(--fog); font-size: 1.1rem; }
+  .reveal .x { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; }
+  @media (max-width: 640px) { .reveal .podium { gap: 8px; } .reveal .spot { max-width: 28vw; } .reveal .spot.p1 { max-width: 38vw; } .reveal .spot .nopic { font-size: 2.5rem; } }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    .seg, .noprint, #view-add, #view-results, .title, .subtitle { display: none !important; }
+    #view-qr { display: block !important; }
+    .print-title { display: block !important; font-family: "Creepster", cursive; font-size: 48pt; color: #000; text-shadow: none; }
+    .qrbox { padding: 0; }
+    .url { color: #000; }
+  }
+  .print-title { display: none; text-align: center; margin: 0 0 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="home-link" href="/" aria-label="Back to the voting page">
+    <h1 class="title">Host controls</h1>
+    <p class="subtitle">Noah’s 2026 Halloween Party Kickback</p>
+  </a>
+
+  <form id="login" class="box" style="max-width:380px;margin:20px auto" hidden>
+    <label class="field"><span>Host PIN</span>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" required>
+    </label>
+    <button class="btn block" type="submit">Unlock</button>
+  </form>
+
+  <div id="app" hidden>
+    <nav class="seg" role="tablist">
+      <button data-view="add" aria-selected="true">Entrants</button>
+      <button data-view="results" aria-selected="false">Results</button>
+      <button data-view="qr" aria-selected="false">QR code</button>
+    </nav>
+
+    <section id="view-add">
+      <form id="addForm" class="box">
+        <div class="field"><span>Ballots <span class="muted" style="font-weight:400">(tap all that apply)</span></span><div class="catpick" id="catpick"></div></div>
+        <label class="field"><span>Name</span>
+          <input id="name" type="text" autocomplete="off" autocapitalize="words" placeholder="Mike as the Babadook" maxlength="60">
+        </label>
+        <div class="field"><span>Photo (helps a lot)</span>
+          <div class="photo-row">
+            <div class="photo-prev" id="prev">No photo</div>
+            <div class="stack" style="flex:1">
+              <span class="btn ghost small filebtn">Take or choose photo<input id="photo" type="file" accept="image/*"></span>
+              <button type="button" class="btn ghost small" id="clearPhoto" hidden>Remove photo</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn block" id="addBtn" type="submit">Add to ballot</button>
+      </form>
+      <h2 class="sec">On the ballot</h2>
+      <div class="cats" id="lists"></div>
+    </section>
+
+    <section id="view-results" hidden>
+      <p class="muted noprint">Updates every few seconds. 1st pick = 3 points, 2nd = 2, 3rd = 1. Ties go to whoever has more 1st-place votes.</p>
+      <div class="cats" id="results"></div>
+      <h2 class="sec">Reset</h2>
+      <div class="box stack">
+        <button class="btn ghost" id="resetVotes">Clear all votes (keep entrants)</button>
+        <button class="btn danger" id="resetAll">Wipe everything</button>
+      </div>
+    </section>
+
+    <section id="view-qr" hidden>
+      <div class="qrwrap">
+        <h2 class="print-title">Vote for best costume!</h2>
+        <p class="noprint muted">Guests scan this to vote. Print it or leave this screen up.</p>
+        <div class="qrbox"><div id="qr"></div></div>
+        <p class="url" id="voteUrl"></p>
+        <p class="print-only muted" style="font-size:1.1rem">Scan with your phone camera. Pick your top 3 in each category.</p>
+        <button class="btn noprint" onclick="window.print()">Print QR sign</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="reveal" id="reveal" hidden></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const ls = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+  function toast(msg, ok) {
+    const t = document.createElement("div");
+    t.className = "toast" + (ok ? " ok" : "");
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  let pin = ls.get("hv26-pin", "");
+  let state = null, results = null, status = {};
+  let addCats = ls.get("hv26-addcats", ["best"]);
+  if (!Array.isArray(addCats)) addCats = ["best"];
+  let photoData = null;
+  let view = "add";
+
+  async function api(action, payload = {}) {
+    const r = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-admin-pin": pin },
+      body: JSON.stringify({ action, ...payload }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 401) { ls.del("hv26-pin"); showLogin(); throw new Error("Wrong PIN."); }
+    if (!r.ok) throw new Error(data.error || "Something went wrong. Try again.");
+    return data;
+  }
+
+  // ---------- login ----------
+  function showLogin() { $("login").hidden = false; $("app").hidden = true; $("pin").focus(); }
+  $("login").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    pin = $("pin").value.trim();
+    try { await api("check"); ls.set("hv26-pin", pin); start(); }
+    catch (err) { toast(err.message); }
+  });
+
+  // ---------- data ----------
+  async function loadState() {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    state = await r.json();
+    status = state.status;
+  }
+  const cats = () => state.categories;
+  const entrantsFor = (cat) => state.entrants.filter((e) => e.category === cat);
+  const thumb = (e) => e.photo ? `<img class="thumb" src="${esc(e.photo)}" alt="">` : `<div class="thumb">${esc(e.name.charAt(0).toUpperCase())}</div>`;
+  const statusBtn = (c) => {
+    const open = status[c.id] === "open", g = c.kind === "guess";
+    return `<span class="pill ${status[c.id]}">${open ? (g ? "Guessing open" : "Voting open") : "Closed"}</span>
+      <button class="btn ghost small" data-toggle="${c.id}">${open ? (g ? "Close guessing" : "Close voting") : (g ? "Open guessing" : "Reopen")}</button>`;
+  };
+  let answerDraft = null; // murderers being picked but not yet saved
+
+  // ---------- entrants view ----------
+  function renderCatPick() {
+    addCats = addCats.filter((id) => cats().some((c) => c.id === id));
+    $("catpick").innerHTML = cats().map((c) => `<button type="button" data-cat="${c.id}" aria-pressed="${addCats.includes(c.id)}">${addCats.includes(c.id) ? "✓ " : ""}${c.emoji}<br>${esc(c.name)}</button>`).join("");
+  }
+  function renderLists() {
+    $("lists").innerHTML = cats().map((c) => {
+      const list = entrantsFor(c.id);
+      return `<div class="box"><div class="cat-head"><h3>${c.emoji} ${esc(c.name)} <span class="muted">(${list.length})</span></h3><div class="actions">${statusBtn(c)}</div></div>
+        ${list.length ? list.map((e) => `<div class="row">${thumb(e)}<div class="nm">${esc(e.name)}</div>
+          <button class="btn ghost small" data-rename="${e.id}">Rename</button>
+          <button class="btn ghost small" data-remove="${e.id}" aria-label="Remove ${esc(e.name)}">✕</button></div>`).join("")
+          : `<p class="muted" style="margin:0">${c.kind === "guess" ? "No suspects yet. Add everyone guests can accuse, using the Murder Mystery ballot button above." : "No one yet. Add people above as they arrive."}</p>`}</div>`;
+    }).join("");
+  }
+
+  // ---------- results view ----------
+  function renderResults() {
+    if (!results) { $("results").innerHTML = `<p class="muted">Loading…</p>`; return; }
+    $("results").innerHTML = cats().map((c) => {
+      const r = results[c.id];
+      if (c.kind === "guess") return guessResultsHtml(c, r);
+      const top = r.ranking;
+      const tie = top.length > 1 && top[0].points > 0 && top[0].points === top[1].points && top[0].firsts === top[1].firsts;
+      return `<div class="box"><div class="cat-head"><h3>${c.emoji} ${esc(c.name)}</h3><div class="actions">${statusBtn(c)}</div></div>
+        <p class="muted" style="margin:0 0 8px">${r.voters} ${r.voters === 1 ? "person has" : "people have"} voted</p>
+        ${top.length ? top.map((e, i) => `<div class="row"><span class="place" style="${i < 3 && e.points ? `background:var(--r${i + 1})` : ""}">${i + 1}</span>${thumb(e)}
+            <div class="nm">${esc(e.name)}<span class="sub">${e.firsts}× 1st · ${e.seconds}× 2nd · ${e.thirds}× 3rd</span></div>
+            <div class="pts">${e.points}</div></div>`).join("") : `<p class="muted" style="margin:0">No entrants yet.</p>`}
+        ${tie ? `<p class="tie">Dead tie at the top. Points and 1st-place votes are equal, so you call it.</p>` : ""}
+        ${top.length ? `<div style="margin-top:12px"><button class="btn block" data-reveal="${c.id}">Reveal winners on the TV</button></div>` : ""}</div>`;
+    }).join("");
+  }
+  function guessResultsHtml(c, r) {
+    const chosen = answerDraft || r.answer;
+    const saved = !answerDraft;
+    const top = r.detectives[0];
+    const best = top && r.answer.length ? r.detectives.filter((d) => d.correct === top.correct) : [];
+    return `<div class="box"><div class="cat-head"><h3>${c.emoji} ${esc(c.name)}</h3><div class="actions">${statusBtn(c)}</div></div>
+      <p class="muted" style="margin:0 0 4px">${r.voters} ${r.voters === 1 ? "person has" : "people have"} guessed</p>
+
+      <div class="subhead">The real murderers ${r.answer.length && saved ? `<span class="ok">✓ saved</span>` : ""}</div>
+      ${r.suspects.length ? `<p class="muted" style="margin:0">Tap who actually did it, then save. Guests never see this.</p>
+        <div class="chips">${r.suspects.map((e) => `<button class="chip" data-ans="${esc(e.id)}" aria-pressed="${chosen.includes(e.id)}">${chosen.includes(e.id) ? "🔪 " : ""}${esc(e.name)}</button>`).join("")}</div>
+        ${saved ? "" : `<button class="btn small" data-saveans>Save ${chosen.length} murderer${chosen.length === 1 ? "" : "s"}</button> <button class="btn ghost small" data-cancelans>Cancel</button>`}`
+        : `<p class="muted" style="margin:0">Add suspects on the Entrants tab first.</p>`}
+
+      <div class="subhead">Detective leaderboard</div>
+      ${!r.answer.length ? `<p class="muted" style="margin:0">Scores show once you save the real murderers.</p>`
+        : r.detectives.length ? r.detectives.map((d, i) => `<div class="row"><span class="place" style="${best.includes(d) && d.correct ? "background:var(--r1)" : ""}">${i + 1}</span>
+            <div class="nm">${esc(d.name)}<span class="sub">${d.picks.map(esc).join(", ")}</span></div>
+            <div class="pts">${d.correct}/${r.answer.length}</div></div>`).join("")
+        : `<p class="muted" style="margin:0">No guesses yet.</p>`}
+      ${best.length > 1 && top.correct ? `<p class="tie">${best.length} people tied with ${top.correct} right. Ties are listed by who locked in first.</p>` : ""}
+
+      <div class="subhead">Most accused</div>
+      ${r.suspects.filter((e) => e.guesses).slice(0, 8).map((e) => `<div class="row">${thumb(e)}<div class="nm">${esc(e.name)}${r.answer.includes(e.id) ? " 🔪" : ""}</div><div class="pts">${e.guesses}</div></div>`).join("") || `<p class="muted" style="margin:0">No guesses yet.</p>`}
+      ${r.answer.length ? `<div style="margin-top:12px"><button class="btn block" data-reveal="${c.id}">Reveal the murderers on the TV</button></div>` : ""}</div>`;
+  }
+
+  async function loadResults() {
+    try { const d = await api("results"); results = d.results; status = d.status; renderResults(); }
+    catch (e) { /* keep the last numbers on screen */ }
+  }
+
+  // ---------- QR ----------
+  function renderQR() {
+    const url = location.origin + "/";
+    $("voteUrl").textContent = url.replace(/^https?:\/\//, "");
+    if ($("qr").dataset.done) return;
+    if (typeof QRCode === "undefined") { $("qr").textContent = "QR code didn’t load. Check your connection and reload."; return; }
+    new QRCode($("qr"), { text: url, width: 300, height: 300, colorDark: "#1b0f26", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
+    $("qr").dataset.done = "1";
+  }
+
+  // ---------- views ----------
+  let resultsTimer = null;
+  function setView(v) {
+    view = v;
+    document.querySelectorAll(".seg button").forEach((b) => b.setAttribute("aria-selected", b.dataset.view === v));
+    $("view-add").hidden = v !== "add";
+    $("view-results").hidden = v !== "results";
+    $("view-qr").hidden = v !== "qr";
+    clearInterval(resultsTimer);
+    if (v === "results") { renderResults(); loadResults(); resultsTimer = setInterval(() => { if (!document.hidden) loadResults(); }, 5000); }
+    if (v === "qr") renderQR();
+  }
+  async function refresh() {
+    await loadState();
+    renderCatPick(); renderLists();
+    if (view === "results") loadResults();
+  }
+
+  // ---------- photo handling ----------
+  function shrink(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const max = 900;
+        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.round(img.naturalWidth * scale), h = Math.round(img.naturalHeight * scale);
+        const cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Couldn’t read that photo. Try another one.")); };
+      img.src = url;
+    });
+  }
+  $("photo").addEventListener("change", async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      photoData = await shrink(f);
+      $("prev").innerHTML = `<img src="${photoData}" alt="">`;
+      $("clearPhoto").hidden = false;
+    } catch (err) { toast(err.message); }
+    e.target.value = "";
+  });
+  $("clearPhoto").addEventListener("click", () => { photoData = null; $("prev").textContent = "No photo"; $("clearPhoto").hidden = true; });
+
+  $("addForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("name").value.trim();
+    if (!name) { toast("Type a name first."); $("name").focus(); return; }
+    if (!addCats.length) { toast("Tap at least one ballot."); return; }
+    const btn = $("addBtn");
+    btn.disabled = true; btn.textContent = "Adding…";
+    try {
+      await api("add", { name, categories: addCats, photo: photoData });
+      const names = cats().filter((x) => addCats.includes(x.id)).map((x) => x.name);
+      const list = names.length > 1 ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1] : names[0];
+      toast(`${name} added to ${list}`, true);
+      $("name").value = ""; photoData = null; $("prev").textContent = "No photo"; $("clearPhoto").hidden = true;
+      await refresh();
+    } catch (err) { toast(err.message); }
+    finally { btn.disabled = false; btn.textContent = "Add to ballot"; }
+  });
+
+  // ---------- clicks ----------
+  document.addEventListener("click", async (ev) => {
+    const t = ev.target;
+    const seg = t.closest(".seg button"); if (seg) return setView(seg.dataset.view);
+    const cp = t.closest("#catpick button");
+    if (cp) {
+      const id = cp.dataset.cat;
+      addCats = addCats.includes(id) ? addCats.filter((x) => x !== id) : [...addCats, id];
+      ls.set("hv26-addcats", addCats);
+      return renderCatPick();
+    }
+
+    const tog = t.closest("[data-toggle]");
+    if (tog) {
+      const cat = tog.dataset.toggle;
+      const next = status[cat] === "open" ? "closed" : "open";
+      if (next === "closed" && !confirm("Close this one? Guests won’t be able to vote or change their picks.")) return;
+      if (next === "open" && cats().find((c) => c.id === cat).kind === "guess" && !confirm("Open murder mystery guessing for everyone now?")) return;
+      try { const d = await api("setStatus", { category: cat, status: next }); status = d.status; state.status = d.status; renderLists(); renderResults(); toast(next === "closed" ? "Voting closed" : "Voting reopened", true); }
+      catch (e) { toast(e.message); }
+      return;
+    }
+    const rn = t.closest("[data-rename]");
+    if (rn) {
+      const e = state.entrants.find((x) => x.id === rn.dataset.rename);
+      const name = prompt("New name", e ? e.name : "");
+      if (!name || !name.trim()) return;
+      try { await api("rename", { id: rn.dataset.rename, name }); await refresh(); } catch (err) { toast(err.message); }
+      return;
+    }
+    const rm = t.closest("[data-remove]");
+    if (rm) {
+      const e = state.entrants.find((x) => x.id === rm.dataset.remove);
+      if (!confirm(`Remove ${e ? e.name : "this entrant"} from this ballot? Votes for them here stop counting. Other ballots aren’t affected.`)) return;
+      try { await api("remove", { id: rm.dataset.remove }); await refresh(); toast("Removed", true); } catch (err) { toast(err.message); }
+      return;
+    }
+    const ch = t.closest("[data-ans]");
+    if (ch) {
+      const id = ch.dataset.ans;
+      const base = answerDraft || results.murder.answer;
+      answerDraft = base.includes(id) ? base.filter((x) => x !== id) : [...base, id];
+      return renderResults();
+    }
+    if (t.closest("[data-cancelans]")) { answerDraft = null; return renderResults(); }
+    if (t.closest("[data-saveans]")) {
+      try { await api("setAnswer", { ids: answerDraft || [] }); answerDraft = null; await loadResults(); toast("Murderers saved", true); }
+      catch (e) { toast(e.message); }
+      return;
+    }
+    const rv = t.closest("[data-reveal]");
+    if (rv) return openReveal(rv.dataset.reveal);
+  });
+
+  $("resetVotes").addEventListener("click", async () => {
+    if (!confirm("Clear every vote in every category? Entrants stay.")) return;
+    try { await api("resetVotes"); await loadResults(); toast("All votes cleared", true); } catch (e) { toast(e.message); }
+  });
+  $("resetAll").addEventListener("click", async () => {
+    if (prompt('This deletes all entrants, photos and votes. Type WIPE to confirm.') !== "WIPE") return;
+    try { await api("resetAll"); await refresh(); await loadResults(); toast("Everything wiped", true); } catch (e) { toast(e.message); }
+  });
+
+  // ---------- TV reveal ----------
+  async function openReveal(cat) {
+    await loadResults();
+    const c = cats().find((x) => x.id === cat);
+    if (c.kind === "guess") return openMurderReveal(c);
+    const top = results[cat].ranking.filter((e) => e.points > 0).slice(0, 3);
+    if (!top.length) { toast("No votes yet in this category."); return; }
+    const labels = ["Winner", "2nd place", "3rd place"];
+    const order = [2, 1, 0].filter((i) => top[i]); // reveal 3rd, then 2nd, then winner
+    const spot = (i) => {
+      const e = top[i];
+      if (!e) return "";
+      const pic = e.photo ? `<img src="${esc(e.photo)}" alt="">` : `<div class="nopic">${esc(e.name.charAt(0).toUpperCase())}</div>`;
+      return `<div class="spot p${i + 1}" data-i="${i}">${pic}<div class="lbl" style="color:var(--r${i + 1})">${labels[i]}</div><div class="who">${esc(e.name)}</div><div class="pt">${e.points} points</div></div>`;
+    };
+    const el = $("reveal");
+    el.innerHTML = `<button class="btn ghost small x" data-close>Close</button>
+      <h2 class="rv-cat">${c.emoji} ${esc(c.name)}</h2>
+      <div class="podium">${spot(1)}${spot(0)}${spot(2)}</div>
+      <p class="hint" id="rvHint">Tap anywhere to reveal ${labels[order[0]].toLowerCase()}</p>`;
+    el.hidden = false;
+    let step = 0;
+    el.onclick = (ev) => {
+      if (ev.target.closest("[data-close]")) { el.hidden = true; el.onclick = null; if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); return; }
+      if (step >= order.length) return;
+      el.querySelector(`.spot[data-i="${order[step]}"]`).classList.add("on");
+      step++;
+      $("rvHint").textContent = step < order.length ? `Tap to reveal ${labels[order[step]].toLowerCase()}` : "🎃 Congrats! 🎃";
+    };
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+
+  function openMurderReveal(c) {
+    const r = results[c.id];
+    const killers = r.answer.map((id) => r.suspects.find((e) => e.id === id)).filter(Boolean);
+    if (!killers.length) { toast("Save the real murderers first."); return; }
+    const top = r.detectives[0];
+    const best = top && top.correct ? r.detectives.filter((d) => d.correct === top.correct) : [];
+    const bestNames = best.length > 6 ? best.slice(0, 6).map((d) => d.name).join(", ") + ` and ${best.length - 6} more` : best.map((d) => d.name).join(" & ");
+    const el = $("reveal");
+    el.innerHTML = `<button class="btn ghost small x" data-close>Close</button>
+      <h2 class="rv-cat">🔪 The murderers were…</h2>
+      <div class="podium lineup">${killers.map((e, i) => `<div class="spot" data-i="${i}">${e.photo ? `<img src="${esc(e.photo)}" alt="">` : `<div class="nopic">${esc(e.name.charAt(0).toUpperCase())}</div>`}<div class="who" style="margin-top:8px">${esc(e.name)}</div></div>`).join("")}</div>
+      <div class="detective" id="det">${best.length
+        ? `<div class="lbl">${best.length > 1 ? "Best detectives" : "Best detective"}</div><div class="who">${esc(bestNames)}</div><div class="pt">${top.correct} of ${killers.length} right</div>`
+        : `<div class="who">Nobody got a single one right 👻</div>`}</div>
+      <p class="hint" id="rvHint">Tap anywhere to reveal the first murderer</p>`;
+    el.hidden = false;
+    let step = 0;
+    el.onclick = (ev) => {
+      if (ev.target.closest("[data-close]")) { el.hidden = true; el.onclick = null; if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); return; }
+      if (step < killers.length) el.querySelector(`.spot[data-i="${step}"]`).classList.add("on");
+      else if (step === killers.length) $("det").classList.add("on");
+      else return;
+      step++;
+      $("rvHint").textContent = step < killers.length ? "Tap to reveal the next murderer" : step === killers.length ? "Tap to reveal the best detective" : "🎃 Case closed 🎃";
+    };
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+
+  // ---------- boot ----------
+  async function start() {
+    $("login").hidden = true; $("app").hidden = false;
+    try { await refresh(); } catch { toast("Couldn’t load the ballot. Check your connection."); }
+    setView(view);
+    setInterval(() => { if (!document.hidden && view === "add") refresh().catch(() => {}); }, 15000);
+  }
+  if (pin) api("check").then(start).catch(() => showLogin());
+  else showLogin();
+})();
+</script>
+</body>
+</html>
