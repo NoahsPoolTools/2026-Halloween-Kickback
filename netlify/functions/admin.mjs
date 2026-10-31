@@ -81,6 +81,16 @@ export default async (req) => {
       return json({ ok: true, status });
     }
 
+    case "setAnswer": {
+      const ids = [...new Set(Array.isArray(body.ids) ? body.ids : [])];
+      const entrants = await getEntrants(store);
+      const suspects = new Set(entrants.filter((e) => e.category === "murder").map((e) => e.id));
+      if (ids.length > 10 || !ids.every((id) => suspects.has(id)))
+        return json({ error: "Pick the murderers from the suspect list." }, 400);
+      await store.setJSON("answer", { murderers: ids });
+      return json({ ok: true });
+    }
+
     case "results": {
       const [results, status] = await Promise.all([tally(store), getStatus(store)]);
       return json({ ok: true, results, status });
@@ -97,6 +107,7 @@ export default async (req) => {
       await deletePrefix(store, "photos/");
       await store.delete("entrants");
       await store.delete("status");
+      await store.delete("answer");
       return json({ ok: true });
     }
 

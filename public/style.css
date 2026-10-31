@@ -50,6 +50,8 @@ img { max-width: 100%; display: block; }
   text-align: center;
 }
 .subtitle { text-align: center; color: var(--fog); margin: 0 0 18px; }
+.home-link { display: block; text-decoration: none; color: inherit; border-radius: 14px; }
+.home-link:hover .subtitle, .home-link:focus-visible .subtitle { color: var(--bone); text-decoration: underline; }
 
 /* Category tabs */
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
@@ -66,6 +68,8 @@ img { max-width: 100%; display: block; }
   position: relative;
 }
 .tab .emo { font-size: 1.6rem; line-height: 1; }
+.tabs.four { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 560px) { .tabs.four { grid-template-columns: repeat(4, 1fr); } }
 .tab[aria-selected="true"] { border-color: var(--pumpkin); background: #3a1f2c; box-shadow: 0 0 0 3px rgba(255,122,26,.18); }
 .tab .done {
   position: absolute; top: -8px; right: -6px;
@@ -100,6 +104,7 @@ img { max-width: 100%; display: block; }
 .card.r1 { border-color: var(--r1); }
 .card.r2 { border-color: var(--r2); }
 .card.r3 { border-color: var(--r3); }
+.card.rk { border-color: var(--blood); }
 .badge {
   position: absolute; top: 8px; left: 8px;
   width: 54px; height: 54px; border-radius: 50%;
@@ -111,6 +116,7 @@ img { max-width: 100%; display: block; }
 .badge.r1 { background: var(--r1); }
 .badge.r2 { background: var(--r2); }
 .badge.r3 { background: var(--r3); }
+.badge.rk { background: var(--blood); font-size: 1.6rem; }
 @keyframes stamp { from { transform: scale(1.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* Bottom vote bar */
